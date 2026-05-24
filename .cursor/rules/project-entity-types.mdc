@@ -1,0 +1,25 @@
+﻿---
+description: Project entities must live under src/types with module-based organization
+alwaysApply: true
+---
+
+# Entity type organization
+
+- All domain entity interfaces and types must be placed under `src/types/`.
+- Organize by module, for example `src/types/production/mesLot.ts` for production-related entities.
+- When creating or updating page code, import entity types from `src/types/...` instead of declaring new page-local entity types.
+- Prefer one module folder per business domain to keep entity definitions reusable across pages, API layers, and stores.
+
+# Examples
+
+```ts
+import type { MesLot } from '@/types/production/mesLot'
+```
+
+```ts
+// Avoid declaring page-local entity types
+script setup lang="ts"
+type MesLot = {
+  id?: string
+}
+```

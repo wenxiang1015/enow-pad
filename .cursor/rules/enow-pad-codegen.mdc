@@ -1,0 +1,39 @@
+﻿---
+description: Code generation guidance for enow-pad
+alwaysApply: true
+---
+
+# enow-pad Code Generation Rules
+
+- 优先复用项目中的公共函数、公共组件、公共样式和已有 API 封装，避免在页面内重复造轮子。
+- 生成页面或模块时，优先查找并复用项目中已有的相似实现，包括工具函数、hooks、组件、样式变量和状态管理。
+- 新增页面布局时优先使用响应式写法，兼顾不同屏幕尺寸和 uni-app 多端适配。
+- 涉及颜色、圆角、阴影、间距等视觉样式时，优先使用项目主题变量、语义类名或已有样式体系，不要直接硬编码无关的魔法值。
+- 编写表单、列表、表格和弹窗等 UI 时，优先采用当前项目的组件体系与交互模式，保持和现有页面一致。
+- 生成代码前先检查项目中是否已有可复用的实体类型、枚举、常量或校验规则，避免在页面中重复声明。
+- 所有新生成的业务实体类型都必须放在 `src/types/` 下，并按业务模块分目录管理，例如 `src/types/production/`。
+- 生成的所有源文件必须使用 UTF-8 编码，中文文本必须保持正常可读，禁止出现乱码、mojibake 或损坏字符。
+- 如果发现原文件存在编码问题，应整体按 UTF-8 重新生成，不要只修补局部字符串。
+
+## 生成时的默认偏好
+
+```text
+公共能力优先 > 现有实现优先 > 主题与样式统一 > 响应式与多端适配 > 避免重复定义
+```
+
+## 示例
+
+```ts
+// ✅ 优先复用项目公共函数
+import { formatDate } from '@/utils/tools'
+
+// ✅ 优先从 types 中引用实体类型
+import type { MesLot } from '@/types/production/mesLot'
+```
+
+```vue
+<!-- ✅ 优先使用主题色与公共样式，而不是硬编码颜色 -->
+<view class="page-card wot-bg-card wot-border-border-light">
+  批次列表
+</view>
+```

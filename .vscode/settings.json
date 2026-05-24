@@ -1,0 +1,7 @@
+{
+  "files.encoding": "utf8bom",
+  "files.autoGuessEncoding": false,
+  "files.eol": "\n",
+  "editor.formatOnSave": true,
+  "files.trimTrailingWhitespace": true
+}

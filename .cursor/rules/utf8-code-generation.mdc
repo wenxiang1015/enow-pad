@@ -1,0 +1,22 @@
+﻿---
+description: Generated code must be saved as UTF-8 and must not contain mojibake or garbled Chinese text
+alwaysApply: true
+---
+
+# UTF-8 code generation
+
+- All newly generated or edited source files must be written in UTF-8.
+- Do not introduce garbled text, mojibake, or broken Chinese characters in templates, comments, labels, or data.
+- If a file is likely to be affected by encoding issues, rewrite it cleanly in UTF-8 instead of patching only part of the content.
+- For Chinese UI text, verify the rendered source remains readable and consistent before finishing.
+- When generating files in this project, prefer UTF-8 BOM for rule files and other files that are repeatedly misdetected by the editor.
+
+# Examples
+
+```ts
+const title = 'MES生产批'
+```
+
+```ts
+// Avoid broken text like: 乱码
+```
