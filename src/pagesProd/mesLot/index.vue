@@ -76,6 +76,22 @@ const navigateToInspection = (row: MesLot) => {
     },
   })
 }
+const navigateToEquipment = (row: MesLot) => {
+  uni.navigateTo({
+    url: '/pagesProd/mesLot/equipment',
+    success: (res) => {
+      res.eventChannel.emit('init', row.id)
+    },
+  })
+}
+const navigateToMaterial = (row: MesLot) => {
+  uni.navigateTo({
+    url: '/pagesProd/mesLot/material',
+    success: (res) => {
+      res.eventChannel.emit('init', row.id)
+    },
+  })
+}
 const navigateTo = (row: MesLot, type: string) => {
   uni.navigateTo({
     url: '/pagesProd/mesLot/df',
@@ -414,7 +430,12 @@ onPullDownRefresh(handleRefresh)
       align="center"
       width="100px"
     >
-      <template #value />
+      <template #value="{ row }">
+        <view @click="navigateToEquipment(row)">
+          <wd-icon v-if="row.equipmentJson" name="check" color="var(--wot-success-main)" />
+          <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
+        </view>
+      </template>
     </wd-table-column>
     <wd-table-column
       prop=""
@@ -422,7 +443,12 @@ onPullDownRefresh(handleRefresh)
       align="center"
       width="100px"
     >
-      <template #value />
+      <template #value="{ row }">
+        <view @click="navigateToMaterial(row)">
+          <wd-icon v-if="row.wlJson" name="check" color="var(--wot-success-main)" />
+          <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
+        </view>
+      </template>
     </wd-table-column>
     <wd-table-column
       prop="closeJson"

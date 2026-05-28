@@ -66,7 +66,8 @@
         {
           "path": "mesLot/inspection/save",
           "style": {
-            "navigationBarTitleText": "巡检登记"
+            "navigationBarTitleText": "巡检登记",
+            "navigationStyle": "custom"
           }
         },
         {
@@ -79,6 +80,18 @@
           "path": "mesLot/lot/save",
           "style": {
             "navigationBarTitleText": "物料批登记"
+          }
+        },
+        {
+          "path": "mesLot/equipment",
+          "style": {
+            "navigationBarTitleText": "设备点检"
+          }
+        },
+        {
+          "path": "mesLot/material",
+          "style": {
+            "navigationBarTitleText": "物料点检"
           }
         }
       ]

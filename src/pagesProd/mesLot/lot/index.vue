@@ -16,16 +16,19 @@ const toast = useGlobalToast()
 const btnLoading = ref(false)
 const showSearch = ref(true)
 const currentLotNo = ref<string>()
-
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
   lotNo: '',
   lotCode: '',
 })
-
 const dataArray = ref<E10Lot[]>([])
 const total = ref(0)
+const gzlTypeOptions = [
+  { label: '只填净重', value: '0' },
+  { label: '净重+瓶重(毛重系统计算)', value: '1' },
+  { label: '瓶重+毛重(净重系统计算)', value: '2' },
+]
 
 const getList = async () => {
   btnLoading.value = true
@@ -155,11 +158,21 @@ onUnload(() => {
   </wd-form>
 
   <wd-table :data="dataArray">
-    <wd-table-column prop="lotCode" label="物料批" fixed align="center" :width="220" />
-    <wd-table-column prop="wgNums" label="外观抽样" align="center" :width="160" />
-    <wd-table-column prop="gnNums" label="功能抽样" align="center" :width="160" />
-    <wd-table-column prop="requirements" label="巡检要求" align="left" :width="320" />
-    <wd-table-column prop="createBy" label="创建人" align="center" :width="160" />
+    <wd-table-column prop="lotCode" label="物料批" fixed align="center" :width="160" />
+    <wd-table-column prop="wgNums" label="外观抽样" align="center" :width="120" />
+    <wd-table-column prop="gnNums" label="功能抽样" align="center" :width="120" />
+    <wd-table-column prop="opNo" label="作业站" align="center" :width="120" />
+    <wd-table-column prop="gzlType" label="灌装量采集类型" align="center" :width="180">
+      <template #value="{ row }">
+        {{ getOptionsLabel(gzlTypeOptions, row.gzlType) }}
+      </template>
+    </wd-table-column>
+    <wd-table-column prop="gzlCount" label="灌装量采集次数" align="center" :width="180" />
+    <wd-table-column prop="upperLimit" label="上限" align="center" :width="120" />
+    <wd-table-column prop="lowerLimit" label="下限" align="center" :width="120" />
+    <wd-table-column prop="gravity" label="比重" align="center" :width="120" />
+    <wd-table-column prop="requirements" label="巡检要求" align="left" :width="240" />
+    <wd-table-column prop="createBy" label="创建人" align="center" :width="120" />
     <wd-table-column prop="createTime" label="创建时间" align="center" :width="220" />
     <wd-table-column prop="id" label="操作" align="center" :width="220">
       <template #value="{ row }">

@@ -19,4 +19,6 @@ export interface MesLot {
   firstJson?: string
   closeJson?: string
   opNo?: string
+  equipmentJson?: string
+  wlJson?: string
 }

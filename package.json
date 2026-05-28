@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "enow-pad",
   "type": "module",
   "version": "2.0.0",
@@ -12,6 +12,7 @@
     "dev": "uni",
     "dev:app": "uni -p app",
     "dev:app:development": "uni -p app --mode development",
+    "dev:app:production": "uni -p app --mode production",
     "dev:app-android": "uni -p app-android",
     "dev:app-android:development": "uni -p app-android --mode development",
     "dev:app-ios": "uni -p app-ios",
