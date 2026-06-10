@@ -6,7 +6,7 @@ import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import dayjs from 'dayjs'
 import { reactive, ref } from 'vue'
 import http from '@/utils/request'
-import { getOptionsLabel } from '@/utils/tools'
+import { getOptionsLabel, hasRole } from '@/utils/tools'
 
 // definePage({
 //   name: 'mesLot',
@@ -55,10 +55,17 @@ const queryParams = reactive({
   endTime: '',
 })
 const wipDateRange = ref<[string, string]>(['', ''])
-const dataArray = ref<MesLot[]>([])
+const dataArray = reactive<MesLot[]>([])
 const total = ref(0)
 const btnLoading = ref(false)
 const showSearch = ref(false)
+const auditTypeOptions = [
+  { label: '清洁', value: 'clean' },
+  { label: '消毒', value: 'disinfection' },
+  { label: '所有', value: '' },
+]
+const auditTypeCountMap = reactive<Record<string, number>>({})
+const currentType = ref<string>('')// 审核查询类型
 
 const navigateToLot = (row: MesLot) => {
   uni.navigateTo({
@@ -68,9 +75,9 @@ const navigateToLot = (row: MesLot) => {
     },
   })
 }
-const navigateToInspection = (row: MesLot) => {
+const navigateToDay = (row: MesLot) => {
   uni.navigateTo({
-    url: '/pagesProd/mesLot/inspection/index',
+    url: '/pagesProd/mesLot/day/list',
     success: (res) => {
       res.eventChannel.emit('init', row.lotNo)
     },
@@ -96,7 +103,15 @@ const navigateTo = (row: MesLot, type: string) => {
   uni.navigateTo({
     url: '/pagesProd/mesLot/df',
     success: (res) => {
-      res.eventChannel.emit('init', { id: row.id, type })
+      const params = {
+        id: row.id,
+        type,
+        auditFlag: false,
+      }
+      if (hasRole('app:production:qc') && type !== 'rev') {
+        params.auditFlag = true
+      }
+      res.eventChannel.emit('init', params)
     },
   })
 }
@@ -111,10 +126,34 @@ const getList = async () => {
       endTime: wipDateRange.value[1]
         ? dayjs(wipDateRange.value[1]).format('YYYY-MM-DD')
         : '',
+      auditType: '',
     }
-    const res: TableData<MesLot> = await http.get('/production/mesLot/list', params)
-    dataArray.value = res?.rows
-    total.value = res?.total
+    if (currentType.value) {
+      params.auditType = currentType.value
+    }
+    const [listRes, countRes] = await Promise.all([
+      http.get('/production/mesLot/list', params) as Promise<TableData<MesLot>>,
+      http.get('/production/mesLot/auditTypeCount') as Promise<Record<string, number>>,
+    ])
+    dataArray.length = 0
+    for (const item of listRes?.rows || []) {
+      item.openJson = item.openJson ? JSON.parse(item.openJson) : ''
+      item.cleanJson = item.cleanJson ? JSON.parse(item.cleanJson) : ''
+      item.disinfectionJson = item.disinfectionJson ? JSON.parse(item.disinfectionJson) : ''
+      item.revJson = item.revJson ? JSON.parse(item.revJson) : ''
+      item.firstJson = item.firstJson ? JSON.parse(item.firstJson) : ''
+      item.closeJson = item.closeJson ? JSON.parse(item.closeJson) : ''
+    }
+    if (countRes.code === 200 && countRes.data) {
+      const data = countRes.data
+      auditTypeCountMap.open = data.open || 0
+      auditTypeCountMap.clean = data.clean || 0
+      auditTypeCountMap.disinfection = data.disinfection || 0
+      auditTypeCountMap.first = data.first || 0
+      auditTypeCountMap.close = data.close || 0
+    }
+    dataArray.push(...(listRes?.rows || []))
+    total.value = listRes?.total
   }
   finally {
     btnLoading.value = false
@@ -123,6 +162,9 @@ const getList = async () => {
 const handleQuery = async () => {
   queryParams.pageNum = 1
   await getList()
+}
+const currentTypeChange = async () => {
+  await handleQuery()
 }
 const resetQuery = async () => {
   queryParams.lotNo = ''
@@ -239,12 +281,26 @@ onPullDownRefresh(handleRefresh)
     />
 
     <view class="filter-actions">
-      <wd-button size="small" @click="resetQuery">
-        重置
-      </wd-button>
-      <wd-button size="small" @click="handleQuery">
-        查询
-      </wd-button>
+      <wd-radio-group v-model="currentType" type="button" @change="currentTypeChange">
+        <wd-badge
+          v-for="item in auditTypeOptions"
+          :key="item.value || 'all'"
+          custom-class="badge"
+          :value="item.value ? (auditTypeCountMap[item.value] || 0) : ''"
+        >
+          <wd-radio :value="item.value">
+            {{ item.label }}
+          </wd-radio>
+        </wd-badge>
+      </wd-radio-group>
+      <view>
+        <wd-button size="small" @click="resetQuery">
+          重置
+        </wd-button>
+        <wd-button size="small" @click="handleQuery">
+          查询
+        </wd-button>
+      </view>
     </view>
   </wd-form>
 
@@ -340,66 +396,6 @@ onPullDownRefresh(handleRefresh)
       :width="160"
     />
     <wd-table-column
-      prop="openJson"
-      label="开线"
-      align="center"
-      width="100px"
-    >
-      <template #value="{ row }">
-        <view @click="navigateTo(row, 'open')">
-          <wd-icon v-if="row.openJson" name="check" color="var(--wot-success-main)" />
-          <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
-        </view>
-      </template>
-    </wd-table-column>
-    <wd-table-column prop="cleanJson" label="清洁" align="center" width="100px">
-      <template #value="{ row }">
-        <view @click="navigateTo(row, 'clean')">
-          <wd-icon v-if="row.cleanJson" name="check" color="var(--wot-success-main)" />
-          <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
-        </view>
-      </template>
-    </wd-table-column>
-    <wd-table-column
-      prop="disinfectionJson"
-      label="消毒"
-      align="center"
-      width="100px"
-    >
-      <template #value="{ row }">
-        <view @click="navigateTo(row, 'disinfection')">
-          <wd-icon v-if="row.disinfectionJson" name="check" color="var(--wot-success-main)" />
-          <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
-        </view>
-      </template>
-    </wd-table-column>
-    <wd-table-column
-      prop="revJson"
-      label="清洁消毒检查"
-      align="center"
-      width="120px"
-    >
-      <template #value="{ row }">
-        <view @click="navigateTo(row, 'rev')">
-          <wd-icon v-if="row.revJson" name="check" color="var(--wot-success-main)" />
-          <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
-        </view>
-      </template>
-    </wd-table-column>
-    <wd-table-column
-      prop="firstJson"
-      label="首件"
-      align="center"
-      width="100px"
-    >
-      <template #value="{ row }">
-        <view @click="navigateTo(row, 'first')">
-          <wd-icon v-if="row.firstJson" name="check" color="var(--wot-success-main)" />
-          <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
-        </view>
-      </template>
-    </wd-table-column>
-    <wd-table-column
       prop=""
       label="物料批"
       align="center"
@@ -412,14 +408,65 @@ onPullDownRefresh(handleRefresh)
       </template>
     </wd-table-column>
     <wd-table-column
-      prop="fillJson"
-      label="品质巡检"
+      prop=""
+      label="生产排班"
       align="center"
       width="100px"
     >
       <template #value="{ row: item }">
-        <view v-if="['101', '102'].includes(item.mb005) && item.opNo" @click="navigateToInspection(item)">
-          <wd-icon v-if="item.inspectionJson" name="check" color="var(--wot-success-main)" />
+        <view @click="navigateToDay(item)">
+          <wd-icon name="list" color="var(--wot-text-secondary)" />
+        </view>
+      </template>
+    </wd-table-column>
+    <wd-table-column
+      prop="cleanJson"
+      label="清洁"
+      align="center"
+      width="100px"
+    >
+      <template #value="{ row }">
+        <view @click="navigateTo(row, 'clean')">
+          <template v-if="row.cleanJson && hasRole('app:production:qc')">
+            <wd-icon v-if="row.cleanJson.conclusion === '符合'" name="check" color="var(--wot-success-main)" />
+            <wd-icon v-else-if="row.cleanJson.conclusion === '不符合'" name="close" color="var(--wot-danger-main)" />
+            <wd-icon v-else name="stamp" color="var(--wot-warning-main)" />
+          </template>
+          <wd-icon v-if="hasRole('app:production:prod')" name="edit" color="var(--wot-text-secondary)" />
+        </view>
+      </template>
+    </wd-table-column>
+    <wd-table-column
+      prop="disinfectionJson"
+      label="消毒"
+      align="center"
+      width="100px"
+    >
+      <template #value="{ row }">
+        <view @click="navigateTo(row, 'disinfection')">
+          <template v-if="row.disinfectionJson && hasRole('app:production:qc')">
+            <wd-icon v-if="row.disinfectionJson.conclusion === '符合'" name="check" color="var(--wot-success-main)" />
+            <wd-icon v-else-if="row.disinfectionJson.conclusion === '不符合'" name="close" color="var(--wot-danger-main)" />
+            <wd-icon v-else name="stamp" color="var(--wot-warning-main)" />
+          </template>
+          <wd-icon v-if="hasRole('app:production:prod')" name="edit" color="var(--wot-text-secondary)" />
+        </view>
+      </template>
+    </wd-table-column>
+    <wd-table-column
+      v-if="hasRole('app:production:qc')"
+      prop="revJson"
+      label="清洁消毒检查"
+      align="center"
+      width="120px"
+    >
+      <template #value="{ row }">
+        <view @click="navigateTo(row, 'rev')">
+          <template v-if="row.revJson">
+            <wd-icon v-if="row.revJson.conclusion === '符合'" name="check" color="var(--wot-success-main)" />
+            <wd-icon v-else-if="row.revJson.conclusion === '不符合'" name="close" color="var(--wot-danger-main)" />
+            <wd-icon v-else name="stamp" color="var(--wot-warning-main)" />
+          </template>
           <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
         </view>
       </template>
@@ -450,19 +497,6 @@ onPullDownRefresh(handleRefresh)
         </view>
       </template>
     </wd-table-column>
-    <wd-table-column
-      prop="closeJson"
-      label="清线"
-      align="center"
-      width="100px"
-    >
-      <template #value="{ row: item }">
-        <view @click="navigateTo(item, 'close')">
-          <wd-icon v-if="item.closeJson" name="check" color="var(--wot-success-main)" />
-          <wd-icon v-else name="edit" color="var(--wot-text-secondary)" />
-        </view>
-      </template>
-    </wd-table-column>
   </wd-table>
 
   <wd-pagination
@@ -483,7 +517,7 @@ onPullDownRefresh(handleRefresh)
 .filter-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 20rpx;
 }
 </style>

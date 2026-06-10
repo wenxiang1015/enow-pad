@@ -57,7 +57,7 @@ function handleThemeColorSelect(option: any) {
   <view class="box-border py-3">
     <view class="mx-3">
       <view class="grid grid-cols-3 gap-3">
-        <view class="rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]">
+        <view class="animated-card card-delay-1 rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]">
           <view class="mx-auto mb-2 h-16 w-16 flex items-center justify-center rounded-full bg-orange-50 dark:bg-orange-950/40">
             <text class="ali-icon ali-shenqing text-8 text-orange-500" />
           </view>
@@ -65,7 +65,7 @@ function handleThemeColorSelect(option: any) {
             申请
           </view>
         </view>
-        <view class="rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]">
+        <view class="animated-card card-delay-2 rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]">
           <view class="mx-auto mb-2 h-16 w-16 flex items-center justify-center rounded-full bg-green-50 dark:bg-green-950/40">
             <text class="ali-icon ali-shenhe text-8 text-green-500" />
           </view>
@@ -73,7 +73,7 @@ function handleThemeColorSelect(option: any) {
             审核
           </view>
         </view>
-        <view class="rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]">
+        <view class="animated-card card-delay-3 rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]">
           <view class="mx-auto mb-2 h-16 w-16 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/40">
             <text class="ali-icon ali-wodedaiban text-8 text-blue-500" />
           </view>
@@ -84,7 +84,7 @@ function handleThemeColorSelect(option: any) {
       </view>
     </view>
 
-    <view class="mx-3" style="margin-top: 10px;">
+    <view class="animated-card card-delay-4 mx-3" style="margin-top: 10px;">
       <view class="grid grid-cols-2 gap-3">
         <view
           v-if="hasPerms('production:mesLot:list')"
@@ -104,46 +104,16 @@ function handleThemeColorSelect(option: any) {
         <view
           v-if="hasPerms('production:mesLot:list')"
           class="rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]"
-          @click="navTo('/pagesProd/mesLot/index')"
-        >
-          <view class="mx-auto mb-2 h-16 w-16 flex items-center justify-center rounded-full" :style="{ backgroundColor: `${currentThemeColor.primary}1A` }">
-            <text class="ali-icon ali-zhiliangxunjianxiang text-8" :style="{ color: currentThemeColor.primary }" />
-          </view>
-          <view class="mb-1 text-3.5 font-bold wot-text-text-main">
-            品质巡检
-          </view>
-          <view class="text-2.5 wot-text-text-auxiliary">
-            进入品质巡检
-          </view>
-        </view>
-        <view
-          v-if="hasPerms('production:mesLot:list')"
-          class="rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]"
-          @click="navTo('/pagesProd/mesLot/index')"
+          @click="navTo('/pagesProd/mesLot/day/index')"
         >
           <view class="mx-auto mb-2 h-16 w-16 flex items-center justify-center rounded-full" :style="{ backgroundColor: `${currentThemeColor.primary}1A` }">
             <text class="ali-icon ali-xiangmuguanli text-8" :style="{ color: currentThemeColor.primary }" />
           </view>
           <view class="mb-1 text-3.5 font-bold wot-text-text-main">
-            设备点检
+            生产日排班
           </view>
           <view class="text-2.5 wot-text-text-auxiliary">
-            进入设备点检
-          </view>
-        </view>
-        <view
-          v-if="hasPerms('production:mesLot:list')"
-          class="rounded-2 bg-white p-4 text-center shadow-sm dark:bg-[var(--wot-dark-background2)]"
-          @click="navTo('/pagesProd/mesLot/index')"
-        >
-          <view class="mx-auto mb-2 h-16 w-16 flex items-center justify-center rounded-full" :style="{ backgroundColor: `${currentThemeColor.primary}1A` }">
-            <text class="ali-icon ali-shengchanguocheng-shengchanzhihang-weixuan text-8" :style="{ color: currentThemeColor.primary }" />
-          </view>
-          <view class="mb-1 text-3.5 font-bold wot-text-text-main">
-            物料点检
-          </view>
-          <view class="text-2.5 wot-text-text-auxiliary">
-            进入物料点检
+            进入生产日排班
           </view>
         </view>
       </view>
@@ -184,3 +154,39 @@ function handleThemeColorSelect(option: any) {
     </wd-action-sheet>
   </view>
 </template>
+
+<style lang="scss" scoped>
+.animated-card {
+  opacity: 0;
+  transform: translateY(24rpx);
+  animation: riseUp 0.55s ease-out forwards;
+}
+
+.card-delay-1 {
+  animation-delay: 0.15s;
+}
+
+.card-delay-2 {
+  animation-delay: 0.35s;
+}
+
+.card-delay-3 {
+  animation-delay: 0.55s;
+}
+
+.card-delay-4 {
+  animation-delay: 0.75s;
+}
+
+@keyframes riseUp {
+  from {
+    opacity: 0;
+    transform: translateY(24rpx);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+</style>

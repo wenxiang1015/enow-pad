@@ -155,3 +155,12 @@ export const hasPerms = (perms: string) => {
   }
   return false
 }
+
+export const hasRole = (roles: string) => {
+  const authStore = useAuthStore()
+  const userRoles = authStore.roles || []
+  if (userRoles) {
+    return userRoles.includes(roles)
+  }
+  return false
+}

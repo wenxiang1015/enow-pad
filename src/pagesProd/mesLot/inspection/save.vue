@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import type { ApiResult } from '@/types/common/apiResult'
 import type { MesLot } from '@/types/production/mesLot'
+import type { MesLotDayLine } from '@/types/production/mesLotDayLine'
 import type { Aql } from '@/types/qc/aql.'
 import type { CpInspection } from '@/types/qc/cpInspection'
 import type { CpStandard } from '@/types/qc/cpStandard'
 import type { E10Lot } from '@/types/qc/e10Lot'
+import type { JcXmItem } from '@/types/qc/jcXmItem'
 import { zodAdapter } from '@wot-ui/ui'
 import { z } from 'zod'
 import { useGlobalLoading } from '@/composables/useGlobalLoading'
@@ -21,13 +23,12 @@ import http from '@/utils/request'
 const toast = useGlobalToast()
 const loading = useGlobalLoading()
 const btnLoading = ref(false)
-const showLotCodePicker = ref(false)
-const lotList = reactive<E10Lot[]>([])
 const itemArray = reactive<any[]>([])
 const qbArray = reactive<any[]>([])// 启泵测试
 const jhlArray = reactive<any[]>([])// 净含量
 const form = reactive<CpInspection>({
   id: undefined,
+  dayId: undefined,
   lotNo: '',
   lotCode: '',
   remark: '',
@@ -41,9 +42,15 @@ const currentAql = reactive<Aql>({})
 const zmArray = reactive<any[]>([])
 const aqlArray = reactive<any[]>([])
 const formRef = ref()
+const bzFhFormRef = ref()
 const schema = zodAdapter(
   z.object({
     lotCode: z.string().min(1, '请填写物料批'),
+  }),
+)
+const bzFhSchema = zodAdapter(
+  z.object({
+    conclusion: z.string().min(1, '请选择结论'),
   }),
 )
 const levelOptions = reactive<any[]>([])
@@ -72,7 +79,65 @@ const gzlTypeOptions = [
   { label: '净重+瓶重(毛重系统计算)', value: '1' },
   { label: '瓶重+毛重(净重系统计算)', value: '2' },
 ]
+const jcXmItemList = reactive<JcXmItem[]>([])// 包装防护检测项目
+const jcXmItemIds = reactive<number[]>([])
+const showJcXmItemPicker = ref(false)
+const showConclusionPicker = ref(false)
+const bzFhArray = reactive<any[]>([])// 包装防护
+const bzFhJson = reactive<any>({
+  conclusion: '',
+  description: '',
+})// 包装防护表单
+const conclusionOptions = [
+  { label: 'OK', value: 'OK' },
+  { label: '让步接受', value: '让步接受' },
+  { label: 'NG', value: 'NG' },
+]
+const currentRow = ref<any>({})// 列表行
+const currentDayId = ref<number>()// 当前页的生产日排班ID
 
+const showConclusion = (row: any) => {
+  currentRow.value = row
+  showConclusionPicker.value = true
+}
+const getConclusionColor = (conclusion: string) => {
+  if (conclusion === 'OK')
+    return 'var(--wot-success-main)'
+  if (conclusion === '让步接受')
+    return 'var(--wot-warning-main)'
+  if (conclusion === 'NG')
+    return 'var(--wot-danger-main)'
+  return 'var(--wot-text-secondary)'
+}
+const confirmConclusion = (conclusion: string) => {
+  currentRow.value.conclusion = conclusion
+  showConclusionPicker.value = false
+}
+const showBzFh = () => {
+  jcXmItemIds.length = 0
+  showJcXmItemPicker.value = true
+}
+const confirmJcXmItem = (ids: number[]) => {
+  const arr = jcXmItemList.filter(i => ids.includes(i.id))
+  if (arr && arr[0]) {
+    bzFhArray.length = 0
+    for (const item of arr) {
+      bzFhArray.push({
+        id: item.id,
+        category: item.category,
+        label: item.title,
+        standard: item.standard,
+        method: item.method,
+        frequency: item.frequency,
+        imgs: item.imgs,
+        conclusion: null,
+        nums: null,
+        description: '',
+      })
+    }
+  }
+  showJcXmItemPicker.value = false
+}
 const navigateBack = () => {
   uni.navigateBack()
 }
@@ -95,21 +160,19 @@ const computeGzlRow = (row: any) => {
   row.min = Math.min(...values)
   row.avg = Number((values.reduce((sum, current) => sum + current, 0) / values.length).toFixed(2))
 }
+// const clampByLotLimit = (value: number) => {
+//   const upper = Number(currentMaterialLot.upperLimit)
+//   const lower = Number(currentMaterialLot.lowerLimit)
 
-const clampByLotLimit = (value: number) => {
-  const upper = Number(currentMaterialLot.upperLimit)
-  const lower = Number(currentMaterialLot.lowerLimit)
+//   if (Number.isNaN(value))
+//     return undefined
 
-  if (Number.isNaN(value))
-    return undefined
-
-  if (!Number.isNaN(lower) && value < lower)
-    return lower
-  if (!Number.isNaN(upper) && value > upper)
-    return upper
-  return value
-}
-
+//   if (!Number.isNaN(lower) && value < lower)
+//     return lower
+//   if (!Number.isNaN(upper) && value > upper)
+//     return upper
+//   return value
+// }
 const computeGzlColumn = (colIndex: number) => {
   const bwRow = jhlArray.find(i => i.value === 'bw')
   const gwRow = jhlArray.find(i => i.value === 'gw')
@@ -174,17 +237,17 @@ const computeGzlColumn = (colIndex: number) => {
 //     || (!Number.isNaN(upper) && value > upper)
 //   )
 // }
-
 const handleGzlInput = (row: any, colIndex: number) => {
-  const key = `c_${colIndex}`
-  const num = Number(row[key])
-  if (Number.isNaN(num)) {
-    row[key] = undefined
-  }
-  else {
-    // TODO 因为 wd-input 内部的组件交互性,这里的赋值不起作用,暂时先不处理,目前用错误样式提示出来了
-    row[key] = clampByLotLimit(Number(num.toFixed(2)))
-  }
+  // 赋值取消,视图没有渲染, 但是row的值却被加上去了,导致合计有问题
+  // const key = `c_${colIndex}`
+  // const num = Number(row[key])
+  // if (Number.isNaN(num)) {
+  //   row[key] = undefined
+  // }
+  // else {
+  //   // TODO 因为 wd-input 内部的组件交互性,这里的赋值不起作用,暂时先不处理,目前用错误样式提示出来了
+  //   row[key] = clampByLotLimit(Number(num.toFixed(2)))
+  // }
   // console.log(row[key])
   computeGzlColumn(colIndex)
 }
@@ -193,20 +256,12 @@ const computeRow = (row: any, key: string) => {
   row.conclusion = Number(row.defectNums ?? 0) <= Number(o[`${key}AcNums`]) ? '合格' : '不合格'
   let conclusion = '合格'
   for (const item of itemArray) {
-    if (item.type === row.type && item.label === row.label) {
-      conclusion = item.conclusion
+    if (item.conclusion === '不合格') {
+      conclusion = '不合格'
       break
     }
   }
   form[`${key}Conclusion`] = conclusion
-}
-const addItem = (array: any[]) => {
-  array.push({
-    value: '',
-  })
-}
-const delItem = (array: any[], index: number) => {
-  array.splice(index, 1)
 }
 const conclusionFlag = (row: any, key: string) => {
   const o = levelOptions.find(i => i.label === row.defectLevel)
@@ -235,12 +290,14 @@ const getZmKeyByNums = (nums: number) => {
     ? ''
     : zmOptions[zmOptions.length - 1].value
 }
-const confirmLot = (lotCode: string) => {
-  const e10Lot = lotList.find(i => i.lotCode === lotCode)
+const confirmLot = async (params: { lotNo: string, lotCode: string }) => {
+  const e10LotRes: ApiResult<E10Lot> = await http.get(`/qc/e10Lot/getByParams`, { lotNo: params.lotNo, lotCode: params.lotCode })
+  if (e10LotRes.code === 200 && e10LotRes.data) {
+    Object.assign(currentMaterialLot, e10LotRes.data)
+  }
 
-  Object.assign(currentMaterialLot, e10Lot)
-  const wgNums = Number(e10Lot?.wgNums ?? 0) || 0
-  const gnNums = Number(e10Lot?.gnNums ?? 0) || 0
+  const wgNums = Number(currentMaterialLot?.wgNums ?? 0) || 0
+  const gnNums = Number(currentMaterialLot?.gnNums ?? 0) || 0
   const wgKey = getZmKeyByNums(wgNums)
   const gnKey = getZmKeyByNums(gnNums)
 
@@ -276,7 +333,7 @@ const confirmLot = (lotCode: string) => {
     item.conclusion = null
   }
 
-  // 获取灌装量采集次数(类型只在页面渲染时使用)
+  // 获取净含量样品数量(类型只在页面渲染时使用)
   const gzlTypeArray = [
     { label: '毛重', value: 'gw' },
     { label: '瓶重', value: 'bw' },
@@ -297,12 +354,24 @@ const confirmLot = (lotCode: string) => {
     }
     jhlArray.push(o)
   }
-}
-const initMesLotMaterialLotAql = async (lotNo: string) => {
-  const lotArray: E10Lot[] = await http.get(`/qc/e10Lot/all`, { lotNo })
-  lotList.length = 0
-  lotList.push(...lotArray)
 
+  // 构建 启泵测试 和 跌落测试 的数组
+  const qbTypeArray = [
+    { label: '启泵测试', value: 'qb' },
+    { label: '单品跌落测试', value: 'dl' },
+  ]
+  qbArray.length = 0
+  for (const item of qbTypeArray) {
+    const o = {
+      label: item.label,
+    }
+    for (let i = 0; i < currentMaterialLot.qbCount; i++) {
+      o[`c_${i}`] = undefined
+    }
+    qbArray.push(o)
+  }
+}
+const initData = async (lotNo: string) => {
   const lotRes: ApiResult<MesLot> = await http.get(`/production/mesLot/getByLotNo/${lotNo}`)
   if (lotRes.code === 200 && lotRes.data) {
     Object.assign(currentMesLot, lotRes.data)
@@ -330,6 +399,10 @@ const initMesLotMaterialLotAql = async (lotNo: string) => {
       }
     }
   }
+
+  const jcXmItems: JcXmItem[] = await http.get(`/qc/jcXmItem/all`, { type: '3', category: '包装防护' })
+  jcXmItemList.length = 0
+  jcXmItemList.push(...jcXmItems)
 }
 const init = async (id: number) => {
   if (id) {
@@ -344,8 +417,8 @@ const init = async (id: number) => {
           form.lotCode = data.lotCode || ''
           form.remark = data.remark || ''
 
-          await initMesLotMaterialLotAql(form.lotNo)
-          await confirmLot(form.lotCode)
+          await initData(form.lotNo)
+          await confirmLot(form)
           // 顺序不要动
           if (data.itemArray) {
             itemArray.length = 0
@@ -361,6 +434,16 @@ const init = async (id: number) => {
             qbArray.length = 0
             qbArray.push(...JSON.parse(data?.qbArray))
           }
+
+          if (data.bzFhJson) {
+            const json = JSON.parse(data?.bzFhJson)
+            bzFhJson.conclusion = json.conclusion
+            bzFhJson.description = json.description
+            bzFhArray.length = 0
+            if (json.array) {
+              bzFhArray.push(...json.array)
+            }
+          }
         }
       }
     }
@@ -369,51 +452,26 @@ const init = async (id: number) => {
     }
   }
 }
-const initItem = async (lotNo: string) => {
-  if (lotNo) {
-    form.lotNo = lotNo
+const initItem = async (dayId: number) => {
+  if (dayId) {
+    currentDayId.value = dayId
     loading.loading('加载中...')
+    const res: ApiResult<MesLotDayLine> = await http.get(`/production/mesLotDayLine/${dayId}`)
+    if (res.code === 200 && res.data) {
+      const data = res.data
+      form.lotNo = data.lotNo
+      form.lotCode = data.lotCode
 
-    await initMesLotMaterialLotAql(lotNo)
-
-    // if (currentMesLot.opNo === 'GB') {
-    //   const gzRes: ApiResult<QcFinishedOp> = await http.get(`/qc/finishedOp/getByParams`, { erpCode: currentMesLot.productNo, opNo: 'GZ' })
-    //   if (gzRes.code === 200 && gzRes.data && gzRes.data.itemArray) {
-    //     const tempArray = JSON.parse(gzRes.data?.itemArray)
-    //     for (const item of tempArray) {
-    //       const exists = array.some(i => i.itemId === item.itemId)
-    //       if (!exists) {
-    //         array.push(item)
-    //       }
-    //     }
-    //   }
-    //   const bzRes: ApiResult<QcFinishedOp> = await http.get(`/qc/finishedOp/getByParams`, { erpCode: currentMesLot.productNo, opNo: 'BZ' })
-    //   if (bzRes.code === 200 && bzRes.data && bzRes.data.itemArray) {
-    //     const tempArray = JSON.parse(bzRes.data?.itemArray)
-    //     for (const item of tempArray) {
-    //       const exists = array.some(i => i.itemId === item.itemId)
-    //       if (!exists) {
-    //         array.push(item)
-    //       }
-    //     }
-    //   }
-    // }
-    // else {
-    //   const params = { erpCode: currentMesLot.productNo, opNo: currentMesLot.opNo }
-    //   const finishedOpRes: ApiResult<QcFinishedOp> = await http.get(`/qc/finishedOp/getByParams`, params)
-    //   if (finishedOpRes.code === 200 && finishedOpRes.data && finishedOpRes.data.itemArray) {
-    //     const tempArray = JSON.parse(finishedOpRes.data?.itemArray)
-    //     for (const item of tempArray) {
-    //       array.push(item)
-    //     }
-    //   }
-    // }
-
+      await initData(data.lotNo)
+      await confirmLot(data)
+    }
     loading.close()
   }
 }
 const submit = async () => {
   const formRes = await formRef.value?.validate()
+  // const bzFhRes = await bzFhFormRef.value?.validate()
+  // && bzFhRes.valid 加了之后不切换就获取不到表单，暂时不加了
   if (formRes.valid) {
     btnLoading.value = true
     try {
@@ -429,10 +487,12 @@ const submit = async () => {
       params.itemArray = JSON.stringify(itemArray)
       params.qbArray = JSON.stringify(qbArray)
       params.jhlArray = JSON.stringify(jhlArray)
+      bzFhJson.array = bzFhArray
+      params.bzFhJson = JSON.stringify(bzFhJson)
 
       const res: ApiResult<any> = form.id
         ? await http.put('/qc/cpInspection', params)
-        : await http.post('/qc/cpInspection', params)
+        : await http.post('/qc/cpInspection', { ...params, dayId: currentDayId.value })
 
       if (res.code === 200) {
         toast.success({
@@ -454,14 +514,6 @@ const submit = async () => {
     }
   }
 }
-const addMaterialLot = () => {
-  uni.navigateTo({
-    url: '/pagesProd/mesLot/lot/save',
-    success: (res) => {
-      res.eventChannel.emit('initItem', form.lotNo)
-    },
-  })
-}
 
 let eventChannel: UniApp.EventChannel | null = null
 
@@ -471,327 +523,388 @@ onLoad(() => {
   eventChannel = pageVm?.getOpenerEventChannel?.() ?? null
   eventChannel?.on('init', init)
   eventChannel?.on('initItem', initItem)
-
-  uni.$on('refreshMesLotLot', async () => {
-    const lotArray: E10Lot[] = await http.get(`/qc/e10Lot/all`, { lotNo: form.lotNo ?? '' })
-    lotList.length = 0
-    lotList.push(...lotArray)
-  })
 })
 
 onUnload(() => {
   eventChannel?.off('init', init)
   eventChannel?.off('initItem', initItem)
   eventChannel = null
-  uni.$off('refreshMesLotLot')
 })
 </script>
 
 <template>
-  <wd-select-picker
-    v-model="form.lotCode"
-    v-model:visible="showLotCodePicker"
-    type="radio"
-    :columns="lotList"
-    label-key="lotCode"
-    value-key="lotCode"
-    @confirm="confirmLot($event.value)"
-  />
-  <wd-navbar title="巡检登记">
-    <template #left>
-      <wd-icon name="left" class="wd-navbar__arrow" @click="navigateBack" />
-    </template>
-    <template #right>
-      <wd-button v-if="form.lotNo" type="primary" size="small" plain @click="addMaterialLot">
-        添加物料批
-      </wd-button>
-    </template>
-  </wd-navbar>
-  <wd-form ref="formRef" :model="form" :schema="schema" :title-width="110">
-    <wd-form-item title="生产批" prop="lotNo">
-      {{ form.lotNo }}
-    </wd-form-item>
-    <wd-form-item
-      title="物料批"
-      prop="lotCode"
-      :value="form.lotCode"
-      is-link
-      placeholder="请选择物料批"
-      @click="showLotCodePicker = true"
+  <view class="page-wraper">
+    <wd-select-picker
+      v-model="currentRow.conclusion"
+      v-model:visible="showConclusionPicker"
+      :columns="conclusionOptions"
+      type="radio"
+      @confirm="confirmConclusion($event.value)"
     />
-    <wd-form-item title="备注" prop="remark">
-      <wd-input v-model="form.remark" />
-    </wd-form-item>
-  </wd-form>
+    <wd-select-picker
+      v-model="jcXmItemIds"
+      v-model:visible="showJcXmItemPicker"
+      :columns="jcXmItemList"
+      label-key="title"
+      value-key="id"
+      @confirm="confirmJcXmItem($event.value)"
+    />
+    <wd-navbar title="巡检登记" style="height: var(--wot-navbar-height);">
+      <template #left>
+        <wd-icon name="left" class="wd-navbar__arrow" @click="navigateBack" />
+      </template>
+      <template #right />
+    </wd-navbar>
+    <wd-form ref="formRef" :model="form" :schema="schema" :title-width="110">
+      <wd-form-item title="生产批" prop="lotNo">
+        {{ form.lotNo }}
+      </wd-form-item>
+      <wd-form-item
+        title="物料批"
+        prop="lotCode"
+      >
+        {{ form.lotCode }}
+      </wd-form-item>
+      <wd-form-item title="备注" prop="remark">
+        <wd-input v-model="form.remark" />
+      </wd-form-item>
+    </wd-form>
 
-  <wd-tabs v-model="currentTab">
-    <block v-for="tab in tabs" :key="tab.label">
-      <wd-tab :title="`${tab.label}(${tab.value})`">
-        <wd-divider>质量限</wd-divider>
-        <view v-if="levelOptions.length" class="aql-grid">
-          <view class="aql-grid__row aql-grid__row--head">
-            <view class="aql-grid__cell aql-grid__cell--left" />
-            <view v-for="item in levelOptions" :key="`level_h_${item.label}`" class="aql-grid__cell">
-              {{ item.label === '0' ? '零缺陷 (0)' : item.label === 'A' ? '严重缺陷 (A)' : item.label === 'B' ? '主要缺陷 (B)' : item.label === 'C' ? '轻微缺陷 (C)' : item.label }}
+    <wd-tabs v-model="currentTab">
+      <block v-for="tab in tabs" :key="tab.label">
+        <wd-tab :title="`${tab.label}(${tab.value})`">
+          <wd-divider>质量限</wd-divider>
+          <view v-if="levelOptions.length" class="aql-grid">
+            <view class="aql-grid__row aql-grid__row--head">
+              <view class="aql-grid__cell aql-grid__cell--left" />
+              <view v-for="item in levelOptions" :key="`level_h_${item.label}`" class="aql-grid__cell">
+                {{ item.label === '0' ? '零缺陷 (0)' : item.label === 'A' ? '严重缺陷 (A)' : item.label === 'B' ? '主要缺陷 (B)' : item.label === 'C' ? '轻微缺陷 (C)' : item.label }}
+              </view>
+            </view>
+            <view class="aql-grid__row">
+              <view class="aql-grid__cell aql-grid__cell--left">
+                缺陷等级
+              </view>
+              <view v-for="item in levelOptions" :key="`level_v_${item.label}`" class="aql-grid__cell">
+                {{ item.value ?? '-' }}
+              </view>
+            </view>
+            <view class="aql-grid__row">
+              <view class="aql-grid__cell aql-grid__cell--left">
+                AC
+              </view>
+              <view v-for="item in levelOptions" :key="`level_v_${item.label}`" class="aql-grid__cell">
+                {{ item[`${tab.key}AcNums`] ?? '-' }}
+              </view>
             </view>
           </view>
-          <view class="aql-grid__row">
-            <view class="aql-grid__cell aql-grid__cell--left">
-              缺陷等级
-            </view>
-            <view v-for="item in levelOptions" :key="`level_v_${item.label}`" class="aql-grid__cell">
-              {{ item.value ?? '-' }}
-            </view>
+
+          <wd-divider>检验项目</wd-divider>
+
+          <wd-table :data="itemArray.filter(i => tab.types.includes(i.type))">
+            <wd-table-column prop="" label="" fixed align="center" :width="50">
+              <template #value>
+                <wd-icon name="minus-circle" color="var(--wot-error-main)" />
+              </template>
+            </wd-table-column>
+            <wd-table-column prop="type" label="检验类别" fixed align="center" :width="100" />
+            <wd-table-column prop="label" label="检验项目" align="center" :width="180" />
+            <wd-table-column prop="standard" label="检验标准" align="center" :width="320" />
+            <wd-table-column prop="defectLevel" label="缺陷等级" align="center" :width="100" />
+            <wd-table-column prop="" label="AQL值" align="center" :width="80">
+              <template #value="{ row }">
+                {{ levelText(row.defectLevel) }}
+              </template>
+            </wd-table-column>
+            <wd-table-column prop="defectNums" label="次品数量" align="center" :width="120">
+              <template #value="{ row }">
+                <wd-input v-model="row.defectNums" type="number" @input="computeRow(row, tab.key)" />
+              </template>
+            </wd-table-column>
+            <wd-table-column prop="" label="结论" align="center" :width="120">
+              <template #value="{ row }">
+                <text v-if="conclusionFlag(row, tab.key)" class="result-text result-text--pass">
+                  合格
+                </text>
+                <text v-else class="result-text result-text--fail">
+                  不合格
+                </text>
+              </template>
+            </wd-table-column>
+          </wd-table>
+
+          <view class="conclusion-panel">
+            <text class="conclusion-panel__label">
+              当前页结论：
+            </text>
+            <text
+              class="conclusion-panel__value"
+              :class="form[`${tab.key}Conclusion`] === '合格' ? 'conclusion-panel__value--pass' : form[`${tab.key}Conclusion`] === '不合格' ? 'conclusion-panel__value--fail' : ''"
+            >
+              {{ form[`${tab.key}Conclusion`] }}
+            </text>
           </view>
-          <view class="aql-grid__row">
-            <view class="aql-grid__cell aql-grid__cell--left">
-              AC
-            </view>
-            <view v-for="item in levelOptions" :key="`level_v_${item.label}`" class="aql-grid__cell">
-              {{ item[`${tab.key}AcNums`] ?? '-' }}
-            </view>
-          </view>
+        </wd-tab>
+      </block>
+      <wd-tab key="jhl" title="净含量">
+        <view class="jhl-info-row">
+          <text class="jhl-info-item">
+            净含量采集类型：{{ getOptionsLabel(gzlTypeOptions, currentMaterialLot.gzlType) || '-' }}
+          </text>
+          <text class="jhl-info-item">
+            比重：{{ currentMaterialLot.gravity ?? '-' }}
+          </text>
+          <text class="jhl-info-item">
+            上限: {{ currentMaterialLot.upperLimit ?? '-' }}
+          </text>
+          <text class="jhl-info-item">
+            下限：{{ currentMaterialLot.lowerLimit ?? '-' }}
+          </text>
         </view>
 
-        <wd-divider>检验项目</wd-divider>
+        <!-- 只填净重 -->
+        <wd-table v-if="currentMaterialLot.gzlType === '0'" :data="jhlArray.filter(i => ['nw', 'v'].includes(i.value))">
+          <wd-table-column
+            prop="label"
+            label="项目"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            v-for="i in currentMaterialLot.gzlCount"
+            :key="`c_${i}`"
+            :prop="`c_${i}`"
+            :label="`${i}`"
+            align="center"
+            :width="120"
+          >
+            <template #value="{ row }">
+              <wd-input
+                v-if="['nw'].includes(row.value)"
+                v-model="row[`c_${i}`]"
+                type="number"
+                size="mini"
 
-        <wd-table :data="itemArray.filter(i => tab.types.includes(i.type))">
-          <wd-table-column prop="" label="" fixed align="center" :width="50">
-            <template #value>
-              <wd-icon name="minus-circle" />
+                @input="handleGzlInput(row, i)"
+              />
+              <text v-else>
+                {{ row[`c_${i}`] }}
+              </text>
             </template>
           </wd-table-column>
-          <wd-table-column prop="type" label="检验类别" fixed align="center" :width="100" />
+          <wd-table-column
+            prop="max"
+            label="最大值"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            prop="min"
+            label="最小值"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            prop="avg"
+            label="平均值"
+            align="center"
+            :width="100"
+          />
+        </wd-table>
+        <!-- 净重+瓶重(毛重系统计算) -->
+        <wd-table v-if="currentMaterialLot.gzlType === '1'" :data="jhlArray">
+          <wd-table-column
+            prop="label"
+            label="项目"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            v-for="i in currentMaterialLot.gzlCount"
+            :key="`c_${i}`"
+            :prop="`c_${i}`"
+            :label="`${i}`"
+            align="center"
+            :width="120"
+          >
+            <template #value="{ row }">
+              <wd-input
+                v-if="['bw', 'nw'].includes(row.value)"
+                v-model="row[`c_${i}`]"
+                type="number"
+                size="mini"
+
+                @input="handleGzlInput(row, i)"
+              />
+              <text v-else>
+                {{ row[`c_${i}`] }}
+              </text>
+            </template>
+          </wd-table-column>
+          <wd-table-column
+            prop="max"
+            label="最大值"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            prop="min"
+            label="最小值"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            prop="avg"
+            label="平均值"
+            align="center"
+            :width="100"
+          />
+        </wd-table>
+        <!-- 瓶重+毛重(净重系统计算) -->
+        <wd-table v-if="currentMaterialLot.gzlType === '2'" :data="jhlArray">
+          <wd-table-column
+            prop="label"
+            label="项目"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            v-for="i in currentMaterialLot.gzlCount"
+            :key="`c_${i}`"
+            :prop="`c_${i}`"
+            :label="`${i}`"
+            align="center"
+            :width="120"
+          >
+            <template #value="{ row }">
+              <wd-input
+                v-if="['gw', 'bw'].includes(row.value)"
+                v-model="row[`c_${i}`]"
+                type="number"
+                size="mini"
+
+                @input="handleGzlInput(row, i)"
+              />
+              <text v-else>
+                {{ row[`c_${i}`] }}
+              </text>
+            </template>
+          </wd-table-column>
+          <wd-table-column
+            prop="max"
+            label="最大值"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            prop="min"
+            label="最小值"
+            align="center"
+            :width="100"
+          />
+          <wd-table-column
+            prop="avg"
+            label="平均值"
+            align="center"
+            :width="100"
+          />
+        </wd-table>
+      </wd-tab>
+      <wd-tab key="bzFh" title="包装防护">
+        <wd-icon name="plus-circle" size="24px" color="var(--wot-success-main)" @click="showBzFh" />
+
+        <wd-table :data="bzFhArray">
           <wd-table-column prop="label" label="检验项目" align="center" :width="180" />
-          <wd-table-column prop="standard" label="检验标准" align="center" :width="320" />
-          <wd-table-column prop="defectLevel" label="缺陷等级" align="center" :width="100" />
-          <wd-table-column prop="" label="AQL值" align="center" :width="80">
+          <wd-table-column prop="method" label="检验方法" align="center" :width="320">
             <template #value="{ row }">
-              {{ levelText(row.defectLevel) }}
+              <wd-input v-model="row.method" style="width: 300px;" />
             </template>
           </wd-table-column>
-          <wd-table-column prop="defectNums" label="次品数量" align="center" :width="120">
+          <wd-table-column prop="standard" label="判定标准" align="center" :width="320">
             <template #value="{ row }">
-              <wd-input v-model="row.defectNums" type="number" @input="computeRow(row, tab.key)" />
+              {{ row.standard }}
             </template>
           </wd-table-column>
-          <wd-table-column prop="" label="结论" align="center" :width="120">
+          <wd-table-column prop="nums" label="检验数量" align="center" :width="120">
             <template #value="{ row }">
-              <text v-if="conclusionFlag(row, tab.key)" class="result-text result-text--pass">
-                合格
-              </text>
-              <text v-else class="result-text result-text--fail">
-                不合格
-              </text>
+              <wd-input v-model="row.nums" type="number" />
+            </template>
+          </wd-table-column>
+          <wd-table-column prop="imgs" label="图片" align="center" :width="360">
+            <template #value="{ row }">
+              <image-upload v-model="row.imgs" />
+            </template>
+          </wd-table-column>
+          <wd-table-column prop="description" label="测试结果" align="center" :width="280">
+            <template #value="{ row }">
+              <wd-input v-model="row.description" />
+            </template>
+          </wd-table-column>
+          <wd-table-column
+            prop="conclusion"
+            label="结论"
+            align="center"
+            :width="120"
+          >
+            <template #value="{ row }">
+              <view @click="showConclusion(row)">
+                <text v-if="row.conclusion" :style="{ color: getConclusionColor(row.conclusion) }">
+                  {{ row.conclusion }}
+                </text>
+                <text v-else :style="{ color: 'var(--wot-text-secondary)' }">
+                  请选择
+                </text>
+              </view>
             </template>
           </wd-table-column>
         </wd-table>
 
-        <view class="conclusion-panel">
-          <text class="conclusion-panel__label">
-            当前页结论：
-          </text>
-          <text
-            class="conclusion-panel__value"
-            :class="form[`${tab.key}Conclusion`] === '合格' ? 'conclusion-panel__value--pass' : form[`${tab.key}Conclusion`] === '不合格' ? 'conclusion-panel__value--fail' : ''"
-          >
-            {{ form[`${tab.key}Conclusion`] || '-' }}
-          </text>
-        </view>
+        <wd-form ref="bzFhFormRef" :model="bzFhJson" :schema="bzFhSchema" :title-width="110">
+          <wd-form-item
+            title="结论"
+            prop="conclusion"
+            :value="bzFhJson.conclusion"
+            is-link
+            @click="showConclusion(bzFhJson)"
+          />
+          <wd-form-item title="描述" prop="description">
+            <wd-input v-model="bzFhJson.description" />
+          </wd-form-item>
+        </wd-form>
       </wd-tab>
-    </block>
-    <wd-tab key="qb" title="启泵测试">
-      <wd-button>
-        <wd-icon name="plus-circle" color="var(--wot-success-main)" @click="addItem(qbArray)" />
+      <wd-tab key="inspection" title="检测项目">
+        <wd-table :data="qbArray">
+          <wd-table-column
+            prop="label"
+            label="检测项目"
+            align="center"
+            :width="130"
+          />
+          <wd-table-column
+            v-for="i in currentMaterialLot.qbCount"
+            :key="`c_${i}`"
+            :prop="`c_${i}`"
+            :label="`${i}`"
+            align="center"
+            :width="120"
+          >
+            <template #value="{ row }">
+              <wd-input
+                v-model="row[`c_${i}`]"
+                type="number"
+                size="mini"
+              />
+            </template>
+          </wd-table-column>
+        </wd-table>
+      </wd-tab>
+    </wd-tabs>
+
+    <view class="bottom-btn">
+      <wd-button block :loading="btnLoading" @click="submit">
+        提交
       </wd-button>
-      <wd-table :data="qbArray">
-        <wd-table-column prop="productNo" label="删除" align="center" width="10%">
-          <template #value="{ index }">
-            <wd-icon name="minus-circle" color="var(--wot-error-main)" @click="delItem(qbArray, index)" />
-          </template>
-        </wd-table-column>
-        <wd-table-column
-          prop="value"
-          label="数值"
-          align="center"
-          width="90%"
-        >
-          <template #value="{ row }">
-            <wd-input v-model="row.value" type="number" />
-          </template>
-        </wd-table-column>
-      </wd-table>
-    </wd-tab>
-    <wd-tab key="jhl" title="净含量">
-      <view class="jhl-info-row">
-        <text class="jhl-info-item">
-          灌装量采集类型：{{ getOptionsLabel(gzlTypeOptions, currentMaterialLot.gzlType) || '-' }}
-        </text>
-        <text class="jhl-info-item">
-          比重：{{ currentMaterialLot.gravity ?? '-' }}
-        </text>
-        <text class="jhl-info-item">
-          上限: {{ currentMaterialLot.upperLimit ?? '-' }}
-        </text>
-        <text class="jhl-info-item">
-          下限：{{ currentMaterialLot.lowerLimit ?? '-' }}
-        </text>
-      </view>
-
-      <!-- 只填净重 -->
-      <wd-table v-if="currentMaterialLot.gzlType === '0'" :data="jhlArray.filter(i => ['nw', 'v'].includes(i.value))">
-        <wd-table-column
-          prop="label"
-          label="项目"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          v-for="i in currentMaterialLot.gzlCount"
-          :key="`c_${i}`"
-          :prop="`c_${i}`"
-          :label="`${i}次`"
-          align="center"
-          :width="120"
-        >
-          <template #value="{ row }">
-            <wd-input
-              v-if="['nw'].includes(row.value)"
-              v-model="row[`c_${i}`]"
-              type="number"
-              size="mini"
-
-              @input="handleGzlInput(row, i)"
-            />
-            <text v-else>
-              {{ row[`c_${i}`] }}
-            </text>
-          </template>
-        </wd-table-column>
-        <wd-table-column
-          prop="max"
-          label="最大值"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          prop="min"
-          label="最小值"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          prop="avg"
-          label="平均值"
-          align="center"
-          :width="100"
-        />
-      </wd-table>
-      <!-- 净重+瓶重(毛重系统计算) -->
-      <wd-table v-if="currentMaterialLot.gzlType === '1'" :data="jhlArray">
-        <wd-table-column
-          prop="label"
-          label="项目"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          v-for="i in currentMaterialLot.gzlCount"
-          :key="`c_${i}`"
-          :prop="`c_${i}`"
-          :label="`${i}次`"
-          align="center"
-          :width="120"
-        >
-          <template #value="{ row }">
-            <wd-input
-              v-if="['bw', 'nw'].includes(row.value)"
-              v-model="row[`c_${i}`]"
-              type="number"
-              size="mini"
-
-              @input="handleGzlInput(row, i)"
-            />
-            <text v-else>
-              {{ row[`c_${i}`] }}
-            </text>
-          </template>
-        </wd-table-column>
-        <wd-table-column
-          prop="max"
-          label="最大值"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          prop="min"
-          label="最小值"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          prop="avg"
-          label="平均值"
-          align="center"
-          :width="100"
-        />
-      </wd-table>
-      <!-- 瓶重+毛重(净重系统计算) -->
-      <wd-table v-if="currentMaterialLot.gzlType === '2'" :data="jhlArray">
-        <wd-table-column
-          prop="label"
-          label="项目"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          v-for="i in currentMaterialLot.gzlCount"
-          :key="`c_${i}`"
-          :prop="`c_${i}`"
-          :label="`${i}次`"
-          align="center"
-          :width="120"
-        >
-          <template #value="{ row }">
-            <wd-input
-              v-if="['gw', 'bw'].includes(row.value)"
-              v-model="row[`c_${i}`]"
-              type="number"
-              size="mini"
-
-              @input="handleGzlInput(row, i)"
-            />
-            <text v-else>
-              {{ row[`c_${i}`] }}
-            </text>
-          </template>
-        </wd-table-column>
-        <wd-table-column
-          prop="max"
-          label="最大值"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          prop="min"
-          label="最小值"
-          align="center"
-          :width="100"
-        />
-        <wd-table-column
-          prop="avg"
-          label="平均值"
-          align="center"
-          :width="100"
-        />
-      </wd-table>
-    </wd-tab>
-  </wd-tabs>
-
-  <view class="bottom-btn">
-    <wd-button block :loading="btnLoading" @click="submit">
-      提交
-    </wd-button>
+    </view>
   </view>
 </template>
 

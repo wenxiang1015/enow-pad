@@ -13,20 +13,23 @@ export const useAuthStore = defineStore('auth', {
     token: undefined as string | undefined,
     user: null as AuthUser | null,
     perms: [] as string[],
+    roles: [] as string[],
   }),
   getters: {
     isLogin: state => !!state.token,
   },
   actions: {
-    setSession(payload: { token: string, user: AuthUser, perms: string[] }) {
+    setSession(payload: { token: string, user: AuthUser, perms: string[], roles: string[] }) {
       this.token = payload.token
       this.user = payload.user
       this.perms = payload.perms
+      this.roles = payload.roles
     },
     clearSession() {
       this.token = undefined
       this.user = null
       this.perms = []
+      this.roles = []
     },
   },
 })

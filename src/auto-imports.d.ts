@@ -57,6 +57,7 @@ declare global {
   const getOptionsLabels: typeof import('./utils/tools')['getOptionsLabels']
   const h: typeof import('vue')['h']
   const hasPerms: typeof import('./utils/tools')['hasPerms']
+  const hasRole: typeof import('./utils/tools')['hasRole']
   const http: typeof import('./utils/request')['http']
   const ignorableWatch: typeof import('@vueuse/core')['ignorableWatch']
   const inject: typeof import('vue')['inject']
@@ -117,7 +118,6 @@ declare global {
   const onUnload: typeof import('@dcloudio/uni-app')['onUnload']
   const onUnmounted: typeof import('vue')['onUnmounted']
   const onUpdated: typeof import('vue')['onUpdated']
-  const onWatcherCleanup: typeof import('vue')['onWatcherCleanup']
   const pausableWatch: typeof import('@vueuse/core')['pausableWatch']
   const persistPlugin: typeof import('./store/persist')['persistPlugin']
   const previewImg: typeof import('./utils/tools')['previewImg']
@@ -240,7 +240,6 @@ declare global {
   const useGlobalDialog: typeof import('./composables/useGlobalDialog')['useGlobalDialog']
   const useGlobalLoading: typeof import('./composables/useGlobalLoading')['useGlobalLoading']
   const useGlobalToast: typeof import('./composables/useGlobalToast')['useGlobalToast']
-  const useId: typeof import('vue')['useId']
   const useIdle: typeof import('@vueuse/core')['useIdle']
   const useImage: typeof import('@vueuse/core')['useImage']
   const useInfiniteScroll: typeof import('@vueuse/core')['useInfiniteScroll']
@@ -258,7 +257,6 @@ declare global {
   const useMediaQuery: typeof import('@vueuse/core')['useMediaQuery']
   const useMemoize: typeof import('@vueuse/core')['useMemoize']
   const useMemory: typeof import('@vueuse/core')['useMemory']
-  const useModel: typeof import('vue')['useModel']
   const useMounted: typeof import('@vueuse/core')['useMounted']
   const useMouse: typeof import('@vueuse/core')['useMouse']
   const useMouseInElement: typeof import('@vueuse/core')['useMouseInElement']
@@ -311,7 +309,6 @@ declare global {
   const useSwipe: typeof import('@vueuse/core')['useSwipe']
   const useTabbar: typeof import('./composables/useTabbar')['useTabbar']
   const useTeam: typeof import('./composables/useTeam')['useTeam']
-  const useTemplateRef: typeof import('vue')['useTemplateRef']
   const useTemplateRefsList: typeof import('@vueuse/core')['useTemplateRefsList']
   const useTextDirection: typeof import('@vueuse/core')['useTextDirection']
   const useTextSelection: typeof import('@vueuse/core')['useTextSelection']
@@ -427,6 +424,7 @@ declare module 'vue' {
     readonly getOptionsLabels: UnwrapRef<typeof import('./utils/tools')['getOptionsLabels']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly hasPerms: UnwrapRef<typeof import('./utils/tools')['hasPerms']>
+    readonly hasRole: UnwrapRef<typeof import('./utils/tools')['hasRole']>
     readonly http: UnwrapRef<typeof import('./utils/request')['http']>
     readonly ignorableWatch: UnwrapRef<typeof import('@vueuse/core')['ignorableWatch']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>

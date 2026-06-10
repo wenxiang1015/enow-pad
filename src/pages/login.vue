@@ -28,6 +28,7 @@ interface LoginResponse {
   token?: string
   user?: AuthUser
   perms?: string[]
+  roles?: string[]
 }
 
 async function submit() {
@@ -54,6 +55,7 @@ async function submit() {
         token: res.token,
         user: res.user,
         perms: res.perms ?? [],
+        roles: res.roles ?? [],
       })
       GlobalToast.success('登录成功')
       uni.reLaunch({ url: '/pages/index/index' })

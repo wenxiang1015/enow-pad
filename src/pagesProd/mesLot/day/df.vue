@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ApiResult } from '@/types/common/apiResult'
 import type { Options } from '@/types/common/options'
-import type { MesLot } from '@/types/production/mesLot'
+import type { MesLotDayLine } from '@/types/production/mesLotDayLine'
 import type { ProductionTemplate } from '@/types/production/productionTemplate'
 import dayjs from 'dayjs'
 import { useGlobalLoading } from '@/composables/useGlobalLoading'
@@ -12,7 +12,7 @@ import http from '@/utils/request'
 const toast = useGlobalToast()
 const authStore = useAuthStore()
 definePage({
-  name: 'mesLotDf',
+  name: 'mesLotDayLineDf',
   style: {
     navigationBarTitleText: '',
   },
@@ -40,7 +40,7 @@ const form = reactive<any>({
   conclusion: '',
   rejectReason: '',
 })
-const mesLot = reactive<MesLot>({})
+const mesLotDayLine = reactive<MesLotDayLine>({})
 const itemArray = reactive<DfItemEntity[]>([])
 const typeOptions = [
   { label: '开线', value: 'open' },
@@ -87,10 +87,10 @@ const selectOptions = (row: Record<string, any>, options: Options[] = conclusion
   }
   showConclusionPicker.value = true
 }
-type MesLotJsonKey = 'openJson' | 'cleanJson' | 'disinfectionJson' | 'revJson' | 'firstJson' | 'closeJson'
+type MesLotDayLineJsonKey = 'openJson' | 'cleanJson' | 'disinfectionJson' | 'revJson' | 'firstJson' | 'closeJson'
 
-const getMesLotJsonKey = (type: string): MesLotJsonKey => {
-  const keyMap: Record<string, MesLotJsonKey> = {
+const getMesLotDayLineJsonKey = (type: string): MesLotDayLineJsonKey => {
+  const keyMap: Record<string, MesLotDayLineJsonKey> = {
     open: 'openJson',
     clean: 'cleanJson',
     disinfection: 'disinfectionJson',
@@ -106,11 +106,11 @@ const init = async (obj: any) => {
   currentType.value = obj.type
   uni.setNavigationBarTitle({ title: currentTypeLabel.value })
   loading.loading('加载中...')
-  const res: ApiResult<MesLot> = await http.get(`/production/mesLot/${obj.id}`)
+  const res: ApiResult<MesLotDayLine> = await http.get(`/production/mesLotDayLine/${obj.id}`)
   if (res.code === 200 && res.data) {
-    const data: MesLot = res.data
-    Object.assign(mesLot, data)
-    const jsonKey = getMesLotJsonKey(currentType.value)
+    const data: MesLotDayLine = res.data
+    Object.assign(mesLotDayLine, data)
+    const jsonKey = getMesLotDayLineJsonKey(currentType.value)
     const currentJson = (data as Record<string, any>)[jsonKey]
     if (currentJson) {
       const json = JSON.parse(currentJson)
@@ -145,8 +145,8 @@ const submit = async () => {
 
   try {
     btnLoading.value = true
-    const res: ApiResult<any> = await http.put('/production/mesLot', {
-      id: mesLot.id,
+    const res: ApiResult<any> = await http.put('/production/mesLotDayLine', {
+      id: mesLotDayLine.id,
       [`${currentType.value}Json`]: JSON.stringify(jsonForm),
     })
 
@@ -155,7 +155,7 @@ const submit = async () => {
         msg: '提交成功',
         closed() {
           uni.navigateBack().then(() => {
-            uni.$emit('refreshMesLot')
+            uni.$emit('refreshMesLotDay')
           })
         },
       })
@@ -188,8 +188,8 @@ const audit = async (conclusion: string) => {
 
   try {
     btnLoading.value = true
-    const res: ApiResult<any> = await http.put('/production/mesLot', {
-      id: mesLot.id,
+    const res: ApiResult<any> = await http.put('/production/mesLotDayLine', {
+      id: mesLotDayLine.id,
       [`${currentType.value}Json`]: JSON.stringify(jsonForm),
     })
 
@@ -198,7 +198,7 @@ const audit = async (conclusion: string) => {
         msg: '审核成功',
         closed() {
           uni.navigateBack().then(() => {
-            uni.$emit('refreshMesLot')
+            uni.$emit('refreshMesLotDay')
           })
         },
       })

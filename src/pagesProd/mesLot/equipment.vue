@@ -103,6 +103,34 @@ const submit = async () => {
 const addItem = () => {
   itemArray.push({ equipmentNo: '' })
 }
+const scanAddItem = async () => {
+  try {
+    const res = await uni.scanCode({
+      scanType: ['qrCode', 'barCode'],
+    })
+
+    const rawCode = (res?.result || '').trim()
+    if (!rawCode) {
+      toast.error('未识别到设备编号')
+      return
+    }
+
+    const equipmentNo = rawCode.replace(/\s+/g, '')
+    if (!equipmentNo) {
+      toast.error('设备编号不能为空')
+      return
+    }
+
+    itemArray.push({ equipmentNo })
+    toast.success(`已添加设备：${equipmentNo}`)
+  }
+  catch (error: any) {
+    if (error?.errMsg?.includes('cancel')) {
+      return
+    }
+    toast.error('扫码失败，请重试')
+  }
+}
 const delItem = (index: number) => {
   itemArray.splice(index, 1)
 }
@@ -128,9 +156,14 @@ onUnload(() => {
     type="radio"
     :columns="equipmentList.map((item: any) => ({ value: item.equipmentNo, label: item.equipmentNo }))"
   />
-  <wd-button>
-    <wd-icon name="plus-circle" color="var(--wot-success-main)" @click="addItem" />
-  </wd-button>
+  <view class="toolbar">
+    <wd-button @click="addItem">
+      <wd-icon name="plus-circle" color="var(--wot-success-main)" />
+    </wd-button>
+    <wd-button @click="scanAddItem">
+      <wd-icon name="scan" color="var(--wot-theme-color)" />
+    </wd-button>
+  </view>
   <wd-table :data="itemArray">
     <wd-table-column prop="equipmentNo" label="删除" align="center" width="10%">
       <template #value="{ index }">
@@ -164,5 +197,9 @@ onUnload(() => {
 </template>
 
 <style scoped lang="scss">
-
+.toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
 </style>

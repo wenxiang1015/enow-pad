@@ -112,7 +112,7 @@ const handleDelete = async (row: E10Lot) => {
 let eventChannel: UniApp.EventChannel | null = null
 
 onLoad(() => {
-  uni.$on('refreshMesLotLot', getList)
+  uni.$on('refreshMesLot', getList)
   const instance = getCurrentInstance() as any
   const pageVm = instance?.proxy as any
   eventChannel = pageVm?.getOpenerEventChannel?.() ?? null
@@ -120,7 +120,7 @@ onLoad(() => {
 })
 
 onUnload(() => {
-  uni.$off('refreshMesLotLot', getList)
+  uni.$off('refreshMesLot', getList)
   eventChannel?.off('init', init)
   eventChannel = null
 })
@@ -162,12 +162,13 @@ onUnload(() => {
     <wd-table-column prop="wgNums" label="外观抽样" align="center" :width="120" />
     <wd-table-column prop="gnNums" label="功能抽样" align="center" :width="120" />
     <wd-table-column prop="opNo" label="作业站" align="center" :width="120" />
-    <wd-table-column prop="gzlType" label="灌装量采集类型" align="center" :width="180">
+    <wd-table-column prop="gzlType" label="净含量采集类型" align="center" :width="180">
       <template #value="{ row }">
         {{ getOptionsLabel(gzlTypeOptions, row.gzlType) }}
       </template>
     </wd-table-column>
-    <wd-table-column prop="gzlCount" label="灌装量采集次数" align="center" :width="180" />
+    <wd-table-column prop="gzlCount" label="净含量样品数量" align="center" :width="180" />
+    <wd-table-column prop="qbCount" label="采集次数" align="center" :width="140" />
     <wd-table-column prop="upperLimit" label="上限" align="center" :width="120" />
     <wd-table-column prop="lowerLimit" label="下限" align="center" :width="120" />
     <wd-table-column prop="gravity" label="比重" align="center" :width="120" />

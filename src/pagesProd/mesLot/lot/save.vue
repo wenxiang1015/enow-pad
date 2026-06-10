@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ApiResult } from '@/types/common/apiResult'
+import type { Options } from '@/types/common/options'
 import type { E10Lot } from '@/types/qc/e10Lot'
 import { zodAdapter } from '@wot-ui/ui'
 import { z } from 'zod'
@@ -22,6 +23,7 @@ const gzlTypeOptions = [
   { label: '净重+瓶重(毛重系统计算)', value: '1' },
   { label: '瓶重+毛重(净重系统计算)', value: '2' },
 ]
+const showLotCodePicker = ref(false)
 const showGzlTypePicker = ref(false)
 type PickerModelValue = string | number | boolean | (string | number | boolean)[]
 type E10LotForm = E10Lot & { gzlType: PickerModelValue }
@@ -34,12 +36,15 @@ const form = reactive<E10LotForm>({
   opNo: '',
   gzlType: '0',
   gzlCount: 10,
+  qbCount: undefined,
+
   upperLimit: undefined,
   lowerLimit: undefined,
   gravity: undefined,
-  requirements: '',
+  requirements: '1.频率：2小时/1次。2.功能抽样量：净含量、配套性、气密性等测试、耐压测试（铝膜袋类：80pcs/台，其他：10pcs/次）。3.外观抽样量：铝膜袋类200片/次，唇釉/水乳膏霜类125PCS/次。4.如有客户特殊需求，按照客户特殊需求执行。',
   remark: '',
 })
+const lotCodeList = reactive<Options[]>([])
 
 const formRef = ref()
 const schema = zodAdapter(
@@ -47,8 +52,9 @@ const schema = zodAdapter(
     lotCode: z.string().min(1, '请填写物料批'),
     wgNums: z.any().refine(value => value !== '' && value !== null && value !== undefined, '请填写外观抽样'),
     gnNums: z.any().refine(value => value !== '' && value !== null && value !== undefined, '请填写功能抽样'),
-    gzlType: z.string().min(1, '请填写灌装量采集类型'),
-    gzlCount: z.any().refine(value => value !== '' && value !== null && value !== undefined, '请填写灌装量采集次数'),
+    gzlType: z.string().min(1, '请填写净含量采集类型'),
+    gzlCount: z.any().refine(value => value !== '' && value !== null && value !== undefined, '请填写净含量样品数量'),
+    qbCount: z.any().refine(value => value !== '' && value !== null && value !== undefined, '请填写启泵采集次数'),
     upperLimit: z.any().refine(value => value !== '' && value !== null && value !== undefined, '请填写上限'),
     lowerLimit: z.any().refine(value => value !== '' && value !== null && value !== undefined, '请填写下限'),
     gravity: z.any().refine(value => value !== '' && value !== null && value !== undefined, '请填写比重'),
@@ -56,6 +62,17 @@ const schema = zodAdapter(
   }),
 )
 
+const initOptions = async () => {
+  const list: string[] = await http.get(`/sc/verification/allLotCode/${form.lotNo}`)
+  lotCodeList.length = 0
+  list.forEach((item) => {
+    lotCodeList.push({
+      label: item,
+      value: item,
+    })
+  })
+  return []
+}
 const init = async (id: number) => {
   if (!id)
     return
@@ -71,11 +88,15 @@ const init = async (id: number) => {
       form.opNo = res.data.opNo || ''
       form.gzlType = res.data.gzlType || '0'
       form.gzlCount = res.data.gzlCount
+      form.qbCount = res.data.qbCount
+
       form.upperLimit = res.data.upperLimit
       form.lowerLimit = res.data.lowerLimit
       form.gravity = res.data.gravity
       form.requirements = res.data.requirements || ''
       form.remark = res.data.remark || ''
+
+      await initOptions()
     }
   }
   finally {
@@ -83,9 +104,11 @@ const init = async (id: number) => {
   }
 }
 
-const initItem = (lotNo: string) => {
-  if (lotNo)
+const initItem = async (lotNo: string) => {
+  if (lotNo) {
     form.lotNo = lotNo
+    await initOptions()
+  }
 }
 
 const submit = async () => {
@@ -105,6 +128,8 @@ const submit = async () => {
       opNo: form.opNo,
       gzlType: form.gzlType,
       gzlCount: form.gzlCount,
+      qbCount: form.qbCount,
+
       upperLimit: form.upperLimit,
       lowerLimit: form.lowerLimit,
       gravity: form.gravity,
@@ -119,7 +144,7 @@ const submit = async () => {
         msg: form.id ? '修改成功' : '新增成功',
         closed() {
           uni.navigateBack().then(() => {
-            uni.$emit('refreshMesLotLot')
+            uni.$emit('refreshMesLot')
             uni.$emit('refreshMesLot')
           })
         },
@@ -158,10 +183,23 @@ onUnload(() => {
     type="radio"
     :columns="gzlTypeOptions"
   />
+  <wd-select-picker
+    v-model="form.lotCode"
+    v-model:visible="showLotCodePicker"
+    type="radio"
+    :columns="lotCodeList"
+  />
   <wd-form ref="formRef" :model="form" :schema="schema" :title-width="110">
     <wd-form-item title="生产批" prop="lotNo">
       {{ form.lotNo }}
     </wd-form-item>
+    <!-- <wd-form-item
+      title="物料批"
+      :value="form.lotCode"
+      is-link
+      prop="lotCode"
+      @click="showLotCodePicker = true"
+    /> -->
     <wd-form-item title="物料批" prop="lotCode">
       <wd-input v-model="form.lotCode" />
     </wd-form-item>
@@ -172,14 +210,17 @@ onUnload(() => {
       <wd-input v-model="form.gnNums" type="number" />
     </wd-form-item>
     <wd-form-item
-      title="灌装量采集类型"
+      title="净含量采集类型"
       :value="getOptionsLabel(gzlTypeOptions, form.gzlType)"
       is-link
       prop="gzlType"
       @click="showGzlTypePicker = true"
     />
-    <wd-form-item title="灌装量采集次数" prop="gzlCount">
+    <wd-form-item title="净含量样品数量" prop="gzlCount">
       <wd-input v-model="form.gzlCount" type="number" />
+    </wd-form-item>
+    <wd-form-item title="采集次数" prop="qbCount">
+      <wd-input v-model="form.qbCount" type="number" />
     </wd-form-item>
     <wd-form-item title="上限" prop="upperLimit">
       <wd-input v-model="form.upperLimit" type="number" />
@@ -191,7 +232,7 @@ onUnload(() => {
       <wd-input v-model="form.gravity" type="number" />
     </wd-form-item>
     <wd-form-item title="巡检要求" prop="requirements">
-      <wd-input v-model="form.requirements" />
+      <wd-textarea v-model="form.requirements" />
     </wd-form-item>
     <wd-form-item title="备注" prop="remark">
       <wd-textarea v-model="form.remark" />

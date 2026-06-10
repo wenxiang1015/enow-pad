@@ -9,6 +9,11 @@ export interface HttpExtraConfig {
   timeout?: number
 }
 
+export interface UploadExtraConfig extends HttpExtraConfig {
+  /** Additional form fields sent with the upload request */
+  formData?: Record<string, string | number | boolean>
+}
+
 function applyAuth(headers: Record<string, string>) {
   try {
     const authStr = uni.getStorageSync('auth')
@@ -105,6 +110,36 @@ export const http = {
         ...baseConfig(extra),
       })
       return method.send() as Promise<T>
+    })
+  },
+
+  upload<T = unknown>(url: string, filePath: string, name = 'file', extra?: UploadExtraConfig): Promise<T> {
+    return withLoading(extra?.skipLoading, async () => {
+      return await new Promise<T>((resolve, reject) => {
+        const header: Record<string, string> = buildHeaders(extra)
+        const task = uni.uploadFile({
+          url: `${import.meta.env.VITE_API_BASE_URL}${url}`,
+          filePath,
+          name,
+          header,
+          formData: extra?.formData,
+          timeout: extra?.timeout ?? 30000,
+          success: (res) => {
+            try {
+              const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
+              resolve(data as T)
+            }
+            catch {
+              resolve(res.data as T)
+            }
+          },
+          fail: reject,
+        })
+
+        task.onProgressUpdate(() => {
+          // upload progress can be handled by caller if needed in the future
+        })
+      })
     })
   },
 }
